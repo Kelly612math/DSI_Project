@@ -11,6 +11,9 @@ Independent - Happiness of marriage
   Number of children
 '
 
+
+# set up -------------------------------------------------------------------
+
 # import packages
 library(tidyverse)
 
@@ -25,4 +28,33 @@ kw_vars <- c("Respondent.id.number", "Hours.per.day.watching.tv", "Happiness.of.
 gss <- gss_cat[kw_vars]
 
 # rename to shorter column names
+short_names <- c("id_", "tvhours", "hapmar", "happy", "marital", "childs")
+names(gss) <- short_names
+
+# convert id_ to character
+gss$id_ <- as.character()
+
+# convert tvhours to numerical
+gss$tvhours <- as.numeric(as.character(gss$tvhours))
+
+
+# brief univariate familiarity --------------------------------------------
+
+# size of data
+dim(gss)
+
+# is there missing data, if so how much?
+sum(is.na(gss$tvhours))
+
+# counts of all values of variable
+table(gss$tvhours, useNA = "always")
+
+# descriptive stats
+min(gss$tvhours)
+max(gss$tvhours)
+mean(gss$tvhours)
+median(gss$tvhours)
+sd(gss$tvhours)
+
+
 
