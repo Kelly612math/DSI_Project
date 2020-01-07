@@ -17,6 +17,9 @@ Independent - Happiness of marriage
 # import packages
 library(tidyverse)
 
+# set working directory
+setwd("C:/Users/willka06/Desktop/AU_DSci_Institute/classrepo/class-final-proj/data")
+
 # load data
 gss_cat <- read.csv("GSS_categoricals.csv")
 
@@ -37,24 +40,55 @@ gss$id_ <- as.character()
 # convert tvhours to numerical
 gss$tvhours <- as.numeric(as.character(gss$tvhours))
 
-
-# brief univariate familiarity --------------------------------------------
-
 # size of data
 dim(gss)
 
+
+# brief univariate familiarity --------------------------------------------
+
 # is there missing data, if so how much?
-sum(is.na(gss$tvhours))
+sum(is.na(gss$i))
 
 # counts of all values of variable
-table(gss$tvhours, useNA = "always")
+table(gss$i, useNA = "always")
 
 # descriptive stats
-min(gss$tvhours)
-max(gss$tvhours)
-mean(gss$tvhours)
-median(gss$tvhours)
-sd(gss$tvhours)
+min(gss$i, na.rm = TRUE)
+max(gss$i, na.rm = TRUE)
+mean(gss$i, na.rm = TRUE)
+median(gss$i, na.rm = TRUE)
+sd(gss$i, na.rm = TRUE)
+
+
+
+# loop attempt ------------------------------------------------------------
+
+
+
+
+
+for (i in short_names){
+  # uat
+  print(i)
+  
+  # is there missing data, if so how much?
+  sum(is.na(gss$i))
+
+  # counts of all values of variable
+  table(gss$i, useNA = "always")
+
+  # descriptive stats
+  min(gss$i, na.rm = TRUE)
+  max(gss$i, na.rm = TRUE)
+  mean(gss$i, na.rm = TRUE)
+  median(gss$i, na.rm = TRUE)
+  sd(gss$i, na.rm = TRUE)
+}
+
+  # bar graph
+  b <- ggplot(gss, aes(gss$i))
+  print(b + geom_bar())
+}
 
 
 
