@@ -1,0 +1,514 @@
+---
+title: "The question we've been asked 1,000 times: Do people still watch TV? Why?"
+author: "Kelly Dixon, Jessi Gronsbell, Kathleen Keshishian, Kate Williams"
+date: '`r Sys.Date()`'
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+bibliography: bib.bib
+---
+
+```{r packages, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(RCurl)
+library(rcompanion)
+library(rpart)
+library(kernlab)
+library(randomForest)
+```
+
+\pagebreak
+
+# Abstract
+
+DONT IGNORE ME
+
+
+\pagebreak
+
+# Background
+
+When we tell people we work at Nielsen, we inevitably get questions. If we’re speaking to someone under 40, the first question is, “What is Nielsen?” The second question is "Does anyone still watch TV?"  Yes, in fact they do!  This is supported both by Nielsen's data and a 2018 article in *The Atlantic* marveled at this fact [@HowMuchTV2018]. 
+
+>"Over the last 8 years, all the new, non-TV things—Facebook, phones, YouTube, Netflix—have only cut about an hour per day from the dizzying amount of TV that the average household watches. Americans are still watching more than 7 hours and 50 minutes per household per day."
+
+![Hours of TV American Households Watch Per Day](Atlantic-graph.png){#id .class width=95% height=95%}
+
+Nielsen uses principles of survey methodology to build best-in-class representative panels to measure television watching - the "what" [@NielsenRef2019].  But how do we analyze the "why"?  Nielsen measures many attributes about the household and captures minute-level TV viewing via meters connected into television in the home, but we have limited visibility into the "why". 
+
+Nielsen has made this decision because we do not want to be overly-intrusive into our panelists' lives. Nielsen meters are a predominately passive measurement collection tool after the initial installation into the home, and we ask our panelists minimal questions and none on attitudes or behavior. For example, as of late, citizenship status is considered a highly sensitive question; therefore, Nielsen does not ask it so that we can increase participation of Hispanic households. By limiting the data we collect, Nielsen reduces non-response bias which improves data quality. 
+
+## Social Science Context
+
+The decsion to limit data collection on feelings and attitudes of Nielsen's panelists  allows us to best measure media behavior without introducing bias is in the media industry and Nielsen's. After being introduced to the GSS survey  data and understanding the social science studies conducted from this dataset, we were excited about the opportunity to examine this dataset.  It could provide us with additional insight about the drivers of television viewing behavior beyond the typical demographic factors and prior media behavior that we typically study. 
+
+## Key Research Question
+
+This leads us to the question, *what feelings and attitudes are associated with higher self-reports of average television viewing in a week?*  As we explore the GSS data it is important to note that self-reported television viewing is subject to more response bias than the passive measurement via the Nielsen television meter. 
+
+## General Social Survey Data
+
+The GSS survey measures a nationally representative panel's feelings and attitudes about a variety of topics.  This survey also asks about television watching in a typical week.  We wanted to explore  other factors besides the demographic factors typically associated with teleivision watching. We use exploratory data analysis, generalized linear modeling, logistic regression with Bayesian techniques and random forest models to explore this question. The results of the analysis are mixed leaving further research questions to explore.
+
+The General Social Survey (GSS) is a project of the independent research organization NORC at the University of Chicago, with principal funding from the National Science Foundation.
+
+From the GSS website [@GSSNORC2016]:  
+>For more than four decades, the General Social Survey (GSS) has studied the growing complexity of American society. It is the only full-probability, personal-interview survey designed to monitor changes in both social characteristics and attitudes currently being conducted in the United States
+
+Data for this project were downloaded using NORC's GSS data explorer [@GSSData2020]. We downloaded 96 variables representing television viewing, demographics, life satisfaction, family life, politics, and religion from surveys conducted during the period from 2008 to 2018. 
+
+GSS questions vary somewhat from year to year. An example question set from 2014 is available on their website [@GSSDataQxn2020].
+
+\pagebreak
+
+# Data Exploration
+
+Self reported daily hours of televison watched, the dependent variable, was based on GSS' question regarding the number of hours per day the respondent spends watching television, TV Hours. Unfortunately, this dependent variable had 4,639 pieces of missing data in 13,794 cases. In the interst of time, these were omitted, leaving 9,155 cases. Time allowing, sophisticated methods to address missing data, such as multiple imputations, should be used for a more thorough investigation.
+
+In order to better understand the GSS dataset, we explored more than 25 variables of interest from question categories including life satisfaction, family life, politics, religion, and demographics.
+
+## In Horizon Variables
+
+Over 70 years of media research behavior has repeatedly shown that drivers of media consumption are geography and key demographic factors including age, race, gender, language spoken in the home, education, and household income [@NielsenRef2019]. Additionally, the media business will analyze the data according to these demographic breaks, so it is essential that models contain these variables.  We will consider the following as "in horizon" explanatiory variables in initial model trials.  
+
+* Gender
+* Race
+* Age
+* Household income or education
+* Geograhic region
+    
+## Beyond the Horizon Variables
+
+When considering the GSS data, we are looking for questions that are capturing more about the respondent's attitude, behavior, feelings or opinions that could infulence television watching. After an initial look at the data and consideration of human behavior we chose to focus on a subset of measures that theoretically offered more value.
+
+For our visualization we wrote R code to create bar graphs using ggplots for all factor variables, example shown below. 
+<!-- load and clean the data -->
+
+```{r, include = FALSE}
+gss_cat = getURL("https://raw.githubusercontent.com/jgronsbell/nielsen_final_proj/master/GSS_categoricals.csv")
+gss_cat = read.csv(text = gss_cat)
+
+
+# isolate variables of choice
+gss_cat <- gss_cat[ ,c("Identifier",
+                  "Hours.per.day.watching.tv",
+                  "Highest.year.of.school.completed",
+                  "Diploma..ged..or.other",
+                  "Labor.force.status",
+                  "Respondents.income",
+                  "Main.source.of.information.about.events.in.the.news",
+                  "Confidence.in.television",
+                  "Political.party.affiliation",
+                  "General.happiness",
+                  "Age.of.respondent",
+                  "Respondents.sex",
+                  "Race.of.respondent",
+                  "Happiness.of.marriage",
+                  "Marital.status",
+                  "Number.of.children",
+                  "Number.of.persons.in.household",
+                  "R.s.quality.of.life",
+                  "Happiness.of.relt.with.partner",
+                  "Region.of.interview",
+                  "How.often.does.r.pray",
+                  "Satisfaction.with.financial.situation",
+                  "Job.or.housework",
+                  "Rs.understanding.of.questions",
+                  "Rs.family.income.when.16.yrs.old",
+                  "Was.r.born.in.this.country",
+                  "Total.family.income",
+                  "Think.of.self.as.liberal.or.conservative",
+                  "Rs.religious.preference",
+                  "Denomination.in.which.r.was.raised"
+                  )]
+
+names(gss_cat) = c("id",
+                  "tvhours",
+                  "highest_yr_school",
+                  "diploma",
+                  "labor",
+                  "income",
+                  "news_source",
+                  "conf_tv",
+                  "party",
+                  "happy",
+                  "age",
+                  "gender",
+                  "race",
+                  "happy_marriage",
+                  "marriage",
+                  "num_children",
+                  "num_hh",
+                  "life_quality",
+                  "happy_partner",
+                  "region",
+                  "pray",
+                  "happy_finances",
+                  "happy_job",
+                  "understanding",
+                  "income_16",
+                  "Born_US",
+                  "HH_income",
+                  "lib_con",
+                  "rel_pref",
+                  "denomination"
+)
+names(gss_cat)
+
+# convert chr variables to numeric
+gss_cat = gss_cat[gss_cat$tvhours != "Not applicable" & gss_cat$tvhours != "No answer" & gss_cat$tvhours != "Don't know", ]
+gss_cat$tvhours = as.numeric(as.character(gss_cat$tvhours))
+gss_cat$highest_yr_school= as.numeric(gss_cat$highest_yr_school)
+
+##Converting factors
+factor <- data.frame(select_if(gss_cat, is.factor))
+ncol(factor)
+names(factor)
+
+gss_cat$diploma = as.factor(gss_cat$diploma)
+gss_cat$labor=as.factor(gss_cat$labor)
+gss_cat$news_source=as.factor(gss_cat$news_source)
+gss_cat$conf_tv=as.factor(gss_cat$conf_tv)
+gss_cat$party=as.factor(gss_cat$party)
+gss_cat$news_source=as.factor(gss_cat$news_source)
+gss_cat$happy=as.factor(gss_cat$happy)
+gss_cat$happy_finances=as.factor(gss_cat$happy_finances)
+gss_cat$happy_job=as.factor(gss_cat$happy_job)
+gss_cat$happy_partner=as.factor(gss_cat$happy_partner)
+gss_cat$gender=as.factor(gss_cat$gender)
+gss_cat$race=as.factor(gss_cat$race)
+gss_cat$num_children=as.factor(gss_cat$num_children)
+gss_cat$life_quality=as.factor(gss_cat$life_quality)
+gss_cat$marriage=as.factor(gss_cat$marriage)
+gss_cat$life_quality=as.factor(gss_cat$life_quality)
+gss_cat$region=as.factor(gss_cat$region)
+gss_cat$pray=as.factor(gss_cat$pray)
+gss_cat$understanding=as.factor(gss_cat$understanding)
+gss_cat$income_16=as.factor(gss_cat$income_16)
+gss_cat$Born_US=as.factor(gss_cat$Born_US)
+gss_cat$HH_income=as.factor(gss_cat$HH_income)
+gss_cat$happy_job=as.factor(gss_cat$happy_job)
+gss_cat$lib_con=as.factor(gss_cat$lib_con)
+gss_cat$rel_pref=as.factor(gss_cat$rel_pref)
+gss_cat$denomination=as.factor(gss_cat$denomination)
+
+factor <- data.frame(select_if(gss_cat, is.factor))
+ncol(factor)
+names(factor)
+```
+
+After this exploratory analysis, we chose to focus on 2 of these feeling/attitude variables for the remainder of the project denoted as happy and pray.  
+* Happy: "Taken all together, how would you say things are these days--would you say that you are very happy, pretty happy, or not too happy?
+* Pray: "About how often do you pray?"
+
+Our decision to reduce to to 2 was based on the following reasoning.
+1. The data was either missing NA or Don't Know for > 3,000 respondents.  An example of this can be seen with the Happiness of Job variable.  While this variable is interesting, it would take our sample size down to approximately 6,000 respondents.
+
+```{r, echo = FALSE, warning = FALSE}
+#For Report, Example with high level of Not Applicable
+ggplot(gss_cat, aes(gss_cat$happy_job)) +
+  geom_bar(color = 'yellow', fill = 'yellow') + 
+  ggtitle("Happiness with Job", subtitle = 'Note High Level of NA') +
+  theme(axis.text.x = element_text(angle = 90))
+
+```
+
+2. Collapsing the categories would require knowledge/information that we do not have time to research given the timelines of the project
+
+```{r, echo = FALSE, warning = FALSE}
+#For Report, Example of Factor with many levels
+ggplot(gss_cat, aes(gss_cat$denomination)) +
+  geom_bar(color = 'pink', fill = 'pink') + 
+  ggtitle("Religious Denomination", subtitle = 'A lot of categories to collapse') +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+3. Most of the information in the data was captured by another variable.
+
+```{r, echo = FALSE, warning = FALSE}
+
+# For Report, Example of redundant variable
+mytable <- table(gss_cat$happy, gss_cat$happy_marriage)
+mytable
+
+dsfortable<-as.data.frame(gss_cat)
+chisq.test(mytable)
+```
+
+From this point forward, we subset our dataset to consider rows that had a valid value >=0 for "tvhours" and had the "happy" and "pray" variables populated.
+
+As seen in the plot below, the mean of TV hours watched is lower for the respondents who answer "very happy" and "pretty happy".
+```{r, message=FALSE}
+ggplot(gss_cat, aes(x = happy, y = gss_cat$tvhours)) +
+  geom_boxplot(color = "blue") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  coord_flip()
+```
+
+As seen in the plot below, the mean of TV hours watched is higher for the respondents who pray "once a week or less".
+```{r, warning = FALSE}
+ggplot(gss_cat, aes(x = pray, y = gss_cat$tvhours)) +
+     geom_boxplot(color = "blue") +
+     theme(axis.text.x = element_text(angle = 90)) +
+     coord_flip() 
+```
+
+## Transformations of the TV hours watched  metric
+
+One limitation of this study is that television watching is estimated for an average day for the respondent.  We see many instances of 24 and 0 hours of television watching.  We did not consider these outliers in the context of this study and what we know about television watching from the meter.
+
+The plot below show the distribution of TV hours.
+
+```{r, warning = FALSE}
+ggplot(gss_cat, aes(gss_cat$tvhours )) +
+  geom_histogram(binwidth = 1, color = 'green', fill = 'green') +
+  ggtitle("Frequency") +
+  scale_x_continuous(name = "TV Hours",
+                     breaks = seq(0, 24, 2),
+                     limits = c(0, 24))
+```
+
+
+Since the distribution of TV hours is not normal, we also created a log transformation of TV hours to use in our models, see plot below.  
+
+```{r, warning = FALSE}
+ggplot(gss_cat, aes(log(gss_cat$tvhours) )) +
+  geom_histogram(binwidth = 1, color = 'orange', fill = 'orange') +
+  ggtitle("Frequency") +
+  scale_x_continuous(name = "Log TV Hours",
+                     breaks = seq(0, 8, 1),
+                     limits =c (0, 8))
+```
+
+But, since we are also interested in looking at effects of "happy" and "pray" on "tvhours" we also created a binomial (watched any tv/did not watch tv).  Because the GSS also asks about an approximation of TV hours watched in an average day, and there is little meaningful difference between 12 hours and 13 hours we concluded that creating a multinomial variable of "light", "medium", "heavy" TV watching. 
+
+```{r, include = FALSE}
+gssv= getURL("https://raw.githubusercontent.com/jgronsbell/nielsen_final_proj/master/gss_mod.csv")
+gssv= read.csv(text = gssv)
+
+#have both a categorical and numeric age variable
+gssv$age<-as.numeric(gssv$age)
+table(gssv$age_cat)
+
+#check names
+names(gssv)
+
+#just looking at this
+gssv$logTVhours <- as.numeric(log(gssv$tvhours))
+hist(gssv$tvhours)
+hist(gssv$logTVhours)
+
+#create dataset with tvhours not = NA
+gss_TV <-gssv[complete.cases(gssv[ , "tvhours"]),]
+dim(gss_TV)
+table(gss_TV$happy)
+table(gss_TV$gender)
+
+#Subset to just people who also have a "Happy" answer and "Pray" answer, we only lose a couple hundred cases
+gss_TV<-as_tibble(gss_TV)
+gss_TV_happy<-subset(gss_TV, gss_TV$happy != "No answer" & gss_TV$happy !="Don't know")
+dim(gss_TV_happy)
+gss_TV_happy<- subset(gss_TV_happy, gss_TV_happy$pray !="Don't know" & gss_TV_happy$pray !="No answer")
+gss_TV_happy<- subset(gss_TV_happy, gss_TV_happy$tvhours>0)
+dim(gss_TV_happy)
+
+```
+
+# Basic General Linear Model (GLM)
+
+The first section of our analysis looks at using a general linear model on the log tranformation of TV hours using our in horizon variables compared to a model with TV hours.  (Note we also compared models with and without the log transformation and found improved fit with the log transformation, as expected.) 
+
+The following code is used to run GLM.
+```{r, warning = FALSE}
+
+#GLM models
+lm_out0 <- glm(data = gss_TV_happy, tvhours ~ gender + race + age  + HH_income )
+lm_out1 <- glm(data = gss_TV_happy, tvhours ~ gender + race + age  + HH_income + happy + pray)
+lm_out2 <- glm(data = gss_TV_happy, tvhours ~ happy  + pray)
+
+#log transformation
+lm_out3 <- glm(data = gss_TV_happy, logTVhours ~ gender + race + age +HH_income )
+lm_out4 <- glm(data = gss_TV_happy, logTVhours ~ gender + race + age +HH_income + happy + pray)
+```
+
+```{r, include = FALSE}
+
+# define y variables
+y0 <- lm_out0$y
+y1 <- lm_out1$y
+y2 <- lm_out1$y
+y3 <- lm_out3$y
+y4 <- lm_out4$y
+
+```
+
+CompareGLM() is a function from the rcompanion package that shows similarities and differences between outputs of different models. The model with the lowest AIC value was the last model shown below, using the log transformation, the standard predictor variables, and "happy," and "pray."
+```{r, warning = FALSE}
+compareGLM(lm_out0, lm_out1, lm_out2, lm_out3, lm_out4)
+```
+
+The coefficient output for the last model shows signifigance for all variables at the same level, except "pray," $\alpha$ = 0.05.
+```{r, warning = FALSE}
+summary(lm_out4)
+```
+
+## Plot of Residuals of Prediction of TV Hours
+
+While the last model was our best fitting GLM model, the residual plot below shows that there is ample room for improvement on model fit. 
+```{r, warning = FALSE}
+plot(predict(lm_out4),y4,
+     xlab = "predicted",ylab = "actual" )
+abline(a = 0,b = 1, col = "red")
+```
+
+
+# Logistic Regression 
+
+A brief story about recoding variables...
+
+Logistic regression is a probabalistic binary outcome model commonly used in social sciences. We selected this model because we were curious whether there was a difference between people who did and did not watch television on an average day.
+
+The following code is used to run logitic regression.
+
+```{r, include = FALSE}
+#making new dataset to keep data clean
+gssv_log_reg <- gssv
+```
+
+
+```{r, warning = FALSE}
+#simple logistic regression
+logit <- glm(tvhours_YN ~ age, data=gssv_log_reg,family="binomial")
+summary(logit)
+TVwatching_by_age <- predict(logit,type="response")
+
+#logistic regression with age and race
+logit_age_race <- glm(tvhours_YN ~ age + race, data=gssv_log_reg,family="binomial")
+summary(logit_age_race)
+TVwatching_by_age_race <- predict(logit_age_race,type="response")
+
+#logistic regression with age, race, and labor status
+logit_age_race_labor <- glm(tvhours_YN ~ age + race + labor, data=gssv_log_reg,family="binomial")
+summary(logit_age_race_labor)
+TVwatching_by_age_race_labor <- predict(logit_age_race_labor,type="response")
+
+#logistic regression for NAs as zero
+logit2 <- glm(tvhours_NA_0_YN ~ age + race , data=gssv_log_reg,family="binomial")
+summary(logit2)
+```
+
+
+# Random Forest Machine Learning 
+
+This is a subsection.  
+
+```{r, warning = FALSE}
+gssv$age<-as.numeric(gssv$age)
+
+#create dataset with tvhours not = NA
+gss_TV <-gssv[complete.cases(gssv[ , "tvhours"]),]
+
+#Subset to just people who also have a "Happy" answer and "Pray" answer, we only lose a couple hundred cases
+gss_TV<-as_tibble(gss_TV)
+gss_TV_happy<-subset(gss_TV, gss_TV$happy != "No answer" & gss_TV$happy !="Don't know")
+
+gss_TV_happy<- subset(gss_TV_happy, gss_TV_happy$pray !="Don't know" & gss_TV_happy$pray !="No answer")
+
+#read the file, please change the file path. 
+TheData <- gss_TV_happy
+TheData = TheData[,c("tvhours_NA_0_cat","age","gender","race","HH_income","happy","pray")]
+
+#Ramdomly reorder rows of the dataset.
+TheData <- TheData[sample(nrow(TheData)),]
+
+#treat these variables as factor
+TheData$tvhours_NA_0_cat<-as.factor(TheData$tvhours_NA_0_cat)
+TheData$happy <- as.factor(TheData$happy)
+TheData$pray <- as.factor(TheData$pray)
+TheData$gender <- as.factor(TheData$gender)
+TheData$race <- as.factor(TheData$race)
+TheData$HH_income <- as.factor(TheData$HH_income)
+
+TheData <- TheData[complete.cases(TheData),]
+
+# select which variable you want to use to train the decision tree. 
+baseFormula <- tvhours_NA_0_cat ~ age + gender + race + HH_income
+happyFormula <- tvhours_NA_0_cat ~ age + gender + race + HH_income + happy
+prayFormula <- tvhours_NA_0_cat ~ age + gender + race + HH_income + happy + pray
+
+#create two arrays to store precisions and recalls
+numrow  = as.integer((nrow(TheData))/7)
+
+TheResultData <- data.frame()
+#Use 7 fold cross validation, devide the dataset into 7 part, each time use 6 part to train and 1 part to test. 
+for(i in 0:6){
+  testrow <- (numrow * i) : (numrow * (i+1) -1)
+  
+  if(i == 6){
+    testrow <- (numrow * i) : nrow(TheData)
+  }
+  TestingData <- TheData[testrow,]
+  TrainingData <- TheData[-testrow,]
+  # Train
+  fit <- randomForest(baseFormula,
+                      data=TrainingData, 
+                      importance=TRUE,replace=FALSE, nodesize = 10 ,
+                      proximity=TRUE,
+                      ntree=500)
+  
+  happyFit <- randomForest(happyFormula,
+                           data=TrainingData, 
+                           importance=TRUE,replace=FALSE, nodesize = 10 ,
+                           proximity=TRUE,
+                           ntree=500)
+  
+  prayFit <- randomForest(prayFormula,
+                          data=TrainingData, 
+                          importance=TRUE,replace=FALSE, nodesize = 10 ,
+                          proximity=TRUE,
+                          ntree=500)
+  
+  # Predict
+  prediction <- predict(fit,TestingData, norm.votes=TRUE, type = "cl")
+  happyPrediction <- predict(happyFit,TestingData, norm.votes=TRUE, type = "cl")
+  prayPrediction <- predict(prayFit,TestingData, norm.votes=TRUE, type = "cl")
+  
+  predictionMatrix <- as.data.frame(prediction)
+  happyPredictionMatrix <- as.data.frame(happyPrediction)
+  prayPredictionMatrix <- as.data.frame(prayPrediction)
+  
+  TestingData <- cbind(TestingData, predictionMatrix, happyPredictionMatrix, prayPredictionMatrix)
+  TheResultData <- rbind(TheResultData, TestingData)
+}
+
+fit
+happyFit
+prayFit
+
+importance(fit, type = 1)
+importance(happyFit, type = 1)
+importance(prayFit, type = 1)
+
+plot(fit)
+plot(happyFit)
+plot(prayFit)
+```
+
+# Results
+
+"Happy" and "pray" improved model fit in the GLM model and were important factors int he random forest model. The logistic regression model did not show much explanatory promise. Further research into ways to improve binomial and multinomial models fit could be fruitful. Certain categorical variables could have been recorded to a scale. This may improve model fit, and it would allow additional models to be tested.
+
+
+\pagebreak
+
+# References
+
+<!-- Need help using .bib file -->
+
+
